@@ -26,7 +26,8 @@ struct MoodAnalysisView: View {
     
     // --- Image Picker State ---
     @State private var showImagePicker = false
-    @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
+    // @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary // REMOVED
+    @State private var isCameraActive = false // NEW: Dedicated state for Camera
     
     // --- Permission State ---
     @State private var showPermissionAlert = false
@@ -48,11 +49,20 @@ struct MoodAnalysisView: View {
                 errorView
             }
         }
+        // Sheet for Photo Library
         .sheet(isPresented: $showImagePicker) {
-            ImagePickerView(selectedImage: $selectedImage, sourceType: sourceType)
+            ImagePickerView(selectedImage: $selectedImage, sourceType: .photoLibrary)
+        }
+        // fullScreenCover for Camera (Recommended for Camera UI)
+        .fullScreenCover(isPresented: $isCameraActive) {
+            ImagePickerView(selectedImage: $selectedImage, sourceType: .camera)
         }
         .onChange(of: selectedImage) { newImage in
             if newImage != nil {
+                // Dismiss the sheet/cover before starting analysis
+                if showImagePicker { showImagePicker = false }
+                if isCameraActive { isCameraActive = false }
+                
                 Task {
                     await analyzeImage()
                 }
@@ -93,7 +103,7 @@ struct MoodAnalysisView: View {
             Spacer()
                 
             Button(action: {
-                checkCameraPermission()
+                checkCameraPermission() // Calls the function that sets isCameraActive
             }) {
                 HStack {
                     Image(systemName: "camera.fill")
@@ -103,7 +113,7 @@ struct MoodAnalysisView: View {
             }
                 
             Button(action: {
-                self.sourceType = .photoLibrary
+                // Directly activates the photo library sheet
                 self.showImagePicker = true
             }) {
                 HStack {
@@ -246,17 +256,17 @@ struct MoodAnalysisView: View {
         withAnimation { analysisState = .selecting }
     }
     
+    // FIX: Updated checkCameraPermission to use the new isCameraActive state
     private func checkCameraPermission() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            self.sourceType = .camera
-            self.showImagePicker = true
+            self.isCameraActive = true
+
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
                     if granted {
-                        self.sourceType = .camera
-                        self.showImagePicker = true
+                        self.isCameraActive = true
                     }
                 }
             }
