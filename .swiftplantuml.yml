@@ -1,0 +1,5 @@
+include:
+  - "*.swift"
+exclude:
+  - "*Tests.swift"
+  - "*UITests.swift"
